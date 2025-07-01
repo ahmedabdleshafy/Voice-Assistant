@@ -1,0 +1,31 @@
+name: Repair Flutter Project
+
+on:
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Remove broken android directory
+        run: rm -rf ./android
+
+      - name: Regenerate Flutter project files
+        # The project name must match what's in your pubspec.yaml
+        run: flutter create --platforms=android --project-name=rafiq_app .
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: Regenerate Android project structure"
+          branch: main
+          file_pattern: . # Commit all new files
