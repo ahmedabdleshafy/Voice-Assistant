@@ -1,14 +1,40 @@
-name: Build Flutter App
+name: Build and Repair
 
 on:
   push:
     branches:
-      - main # Or your default branch
+      - main
 
 jobs:
-  build:
+  # This job runs ONLY when the commit message includes '[repair]'
+  repair-project:
+    if: contains(github.event.head_commit.message, '[repair]')
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Remove broken android directory
+        run: rm -rf ./android
+
+      - name: Regenerate Flutter project files
+        run: flutter create --platforms=android --project-name=rafiq_app .
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(auto): Regenerate Android project structure"
+          branch: main
+
+  # This job runs on every push EXCEPT when the commit message includes '[repair]'
+  build-app:
+    if: "!contains(github.event.head_commit.message, '[repair]')"
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,7 +46,7 @@ jobs:
 
       - name: Get Flutter dependencies
         run: flutter pub get
-
+      
       - name: Create local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
