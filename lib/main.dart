@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
@@ -51,6 +52,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final SpeechToText _speechToText = SpeechToText();
+  final FlutterTts _flutterTts = FlutterTts();
   bool _speechEnabled = false;
   String _lastWords = '';
 
@@ -84,6 +86,16 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _lastWords = result.recognizedWords;
     });
+
+    // After recognition, speak the result
+    if (result.finalResult) {
+      _speak(_lastWords);
+    }
+  }
+
+  void _speak(String text) async {
+    await _flutterTts.setLanguage("ar-SA");
+    await _flutterTts.speak(text);
   }
 
   @override
