@@ -1,4 +1,4 @@
-name: Build and Repair
+name: Build and Repair Voice Assistant
 
 on:
   push:
@@ -6,25 +6,24 @@ on:
       - main
 
 jobs:
-  # This job runs ONLY when the commit message includes '[repair]'
   repair-project:
     if: contains(github.event.head_commit.message, '[repair]')
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Permission to commit back to the repo
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Remove broken android directory
+      - name: Remove old android directory
         run: rm -rf ./android
 
-      - name: Regenerate Flutter project files
+      - name: Regenerate Android project files
         run: flutter create --platforms=android --project-name=rafiq_app .
 
       - name: Commit changes
@@ -33,26 +32,29 @@ jobs:
           commit_message: "chore(auto): Regenerate Android project structure"
           branch: main
 
-  # This job runs on every push EXCEPT when the commit message includes '[repair]'
-  build-app:
+  build:
+    # Run on every push that IS NOT a repair commit
     if: "!contains(github.event.head_commit.message, '[repair]')"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Get Flutter dependencies
+      - name: Install dependencies
         run: flutter pub get
-      
-      - name: Create local.properties
-        run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
-      - name: Build Android APK
+      - name: Build release APK
         run: flutter build apk --release
 
       - name: Upload APK as artifact
