@@ -55,6 +55,7 @@ class _HomePageState extends State<HomePage> {
   final FlutterTts _flutterTts = FlutterTts();
   bool _speechEnabled = false;
   String _lastWords = '';
+  String _statusText = ''; // To display status and error messages
 
   @override
   void initState() {
@@ -64,7 +65,14 @@ class _HomePageState extends State<HomePage> {
 
   /// This has to happen only once per app
   void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize();
+    _speechEnabled = await _speechToText.initialize(
+      onError: (error) => setState(() {
+        _statusText = 'Error: ${error.errorMsg}';
+      }),
+      onStatus: (status) => setState(() {
+        _statusText = 'Status: $status';
+      }),
+    );
     setState(() {});
   }
 
@@ -117,7 +125,7 @@ class _HomePageState extends State<HomePage> {
                     ? _lastWords
                     : _speechEnabled
                         ? 'Tap the microphone to start listening...'
-                        : 'Speech not available',
+                        : 'Speech not available. $_statusText',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                     ),
