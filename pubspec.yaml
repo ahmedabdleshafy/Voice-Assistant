@@ -16,7 +16,7 @@ dependencies:
   # Core packages for our app
   sqflite: ^2.3.0 # Local database
   path_provider: ^2.1.1 # Find local paths
-  speech_to_text: ^6.6.0 # Voice recognition
+  speech_to_text: ^7.1.0 # Voice recognition
   flutter_tts: ^3.8.3 # Text to speech
   flutter_local_notifications: ^17.1.2 # For reminders
   http: ^1.1.0 # For API calls to Dialogflow
