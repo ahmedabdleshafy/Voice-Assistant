@@ -1,0 +1,34 @@
+name: rafiq_app
+description: "A voice-only personal assistant for the MENA region."
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.3 <4.0.0'
+
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Core packages for our app
+  sqflite: ^2.3.0 # Local database
+  path_provider: ^2.1.1 # Find local paths
+  speech_to_text: ^6.6.0 # Voice recognition
+  flutter_tts: ^3.8.3 # Text to speech
+  flutter_local_notifications: ^16.3.2 # For reminders
+  http: ^1.1.0 # For API calls to Dialogflow
+
+  # UI/UX Packages
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
