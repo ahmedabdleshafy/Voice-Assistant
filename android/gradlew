@@ -1,0 +1,117 @@
+#!/usr/bin/env sh
+
+#
+# Copyright 2015 the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+#****************************************************************#
+#                                                                #
+#             Gradle startup script for UN*X like systems        #
+#                                                                #
+#****************************************************************#
+
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS=""
+
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
+
+# Use the maximum available, or set MAX_FD != -1 to use that value.
+MAX_FD="maximum"
+
+warn () {
+    echo "$*"
+}
+
+die () {
+    echo
+    echo "$*"
+    echo
+    exit 1
+}
+
+# OS specific support (must be 'true' or 'false').
+cygwin=false
+msys=false
+darwin=false
+nonstop=false
+case "`uname`" in
+  CYGWIN* )
+    cygwin=true
+    ;;
+  Darwin* )
+    darwin=true
+    ;;
+  MINGW* )
+    msys=true
+    ;;
+  NONSTOP* )
+    nonstop=true
+    ;;
+esac
+
+# Attempt to set APP_HOME
+# Resolve links: $0 may be a link
+PRG="$0"
+# Need this for relative symlinks.
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`"/$link"
+    fi
+done
+APP_HOME=`dirname "$PRG"`
+
+# For Cygwin, ensure paths are in UNIX format before anything is touched
+if $cygwin ; then
+    [ -n "$APP_HOME" ] &&
+        APP_HOME=`cygpath --unix "$APP_HOME"`
+fi
+
+# Attempt to set APP_HOME if not already set.
+if [ -z "$APP_HOME" ]; then
+    die "Cannot find \`$PRG\`."
+fi
+
+# Add a fallback for the case where a user sets the APP_HOME and it has spaces.
+if [ -z "`echo $APP_HOME | grep ' '`" ]; then
+    # Add the app dir to the path
+    PATH=$PATH:"$APP_HOME"
+fi
+
+# Read relative path to gradlew
+if [ -f "$APP_HOME/gradle/wrapper/gradle-wrapper.properties" ]; then
+    GRADLE_WRAPPER_PROPERTIES_PATH="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
+else
+    die "Could not find gradle-wrapper.properties in $APP_HOME"
+fi
+. "$APP_HOME/gradle/wrapper/gradle-wrapper.sh"
+
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin ; then
+    APP_HOME=`cygpath --path --windows "$APP_HOME"`
+    CLASSPATH=`cygpath --path --windows "$CLASSPATH"`
+    CYGWIN_JAVA_HOME=`cygpath --path --windows "$JAVA_HOME"`
+fi
+
+# Split up the JVM options only if the JAVA_OPTS variable is not defined.
+if [ -z "$JAVA_OPTS" ]; then
+    JAVA_OPTS=($DEFAULT_JVM_OPTS)
+fi
+
+exec "$JAVACMD" "${JVM_OPTS[@]}" "${JAVA_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
