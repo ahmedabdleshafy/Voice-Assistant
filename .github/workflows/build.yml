@@ -24,11 +24,8 @@ jobs:
       - name: Create local.properties
         run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
 
-      - name: Build Android APK with Gradle Wrapper
-        working-directory: ./android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleRelease
+      - name: Build Android APK
+        run: flutter build apk --release
 
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
