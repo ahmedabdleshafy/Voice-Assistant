@@ -1,7 +1,8 @@
 name: Repair Flutter Project
 
 on:
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
+    inputs: {} # Allows manual triggering and fixes UI issues
 
 jobs:
   repair:
