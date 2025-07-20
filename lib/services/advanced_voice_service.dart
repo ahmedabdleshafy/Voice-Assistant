@@ -92,6 +92,16 @@ class AdvancedVoiceService {
       return true;
     }
     
+    // Strategy 6: Hardware-level initialization with device-specific fixes
+    if (await _tryHardwareLevelInit()) {
+      return true;
+    }
+    
+    // Strategy 7: Emergency fallback with basic functionality
+    if (await _tryEmergencyFallback()) {
+      return true;
+    }
+    
     _updateError('فشل في تهيئة الخدمة الصوتية بعد جميع المحاولات');
     return false;
   }
@@ -100,6 +110,9 @@ class AdvancedVoiceService {
   Future<bool> _tryStandardInit() async {
     try {
       _updateStatus('المحاولة الأولى: التهيئة القياسية...');
+      
+      // Request permissions explicitly first
+      await _requestMicrophonePermissions();
       
       _speechEnabled = await _speechToText.initialize(
         onError: _handleSpeechError,
@@ -118,6 +131,18 @@ class AdvancedVoiceService {
       _updateError('فشل التهيئة القياسية: $e');
     }
     return false;
+  }
+
+  /// Request microphone permissions explicitly
+  Future<void> _requestMicrophonePermissions() async {
+    try {
+      if (Platform.isAndroid) {
+        const platform = MethodChannel('microphone_permissions');
+        await platform.invokeMethod('requestPermissions');
+      }
+    } catch (e) {
+      print('Permission request failed: $e');
+    }
   }
 
   /// Strategy 2: Delayed initialization (wait for system readiness)
@@ -237,6 +262,121 @@ class AdvancedVoiceService {
     return false;
   }
 
+  /// Strategy 6: Hardware-level initialization with device-specific fixes
+  Future<bool> _tryHardwareLevelInit() async {
+    try {
+      _updateStatus('المحاولة السادسة: تهيئة على مستوى الأجهزة...');
+      
+      // Check microphone permissions at system level
+      const platform = MethodChannel('microphone_permissions');
+      final hasPermission = await platform.invokeMethod('checkPermissions');
+      
+      if (!hasPermission) {
+        _updateError('لا توجد أذونات للميكروفون');
+        return false;
+      }
+      
+      // Request audio focus with maximum priority
+      await _requestAudioFocus();
+      
+      // Wait for hardware to be ready
+      await Future.delayed(const Duration(seconds: 5));
+      
+      // Try with minimal configuration for problematic devices
+      _speechEnabled = await _speechToText.initialize(
+        onError: (error) => print('Hardware init error: ${error.errorMsg}'),
+        onStatus: (status) => print('Hardware init status: $status'),
+        debugLogging: false,
+      );
+      
+      if (_speechEnabled) {
+        _selectedLocale = 'ar-SA'; // Use default
+        await _configureTTS();
+        _isInitialized = true;
+        _updateStatus('تم تهيئة الخدمة على مستوى الأجهزة');
+        return true;
+      }
+    } catch (e) {
+      _updateError('فشل التهيئة على مستوى الأجهزة: $e');
+    }
+    return false;
+  }
+
+  /// Strategy 7: Emergency fallback with basic functionality
+  Future<bool> _tryEmergencyFallback() async {
+    try {
+      _updateStatus('المحاولة الأخيرة: وضع الطوارئ...');
+      
+      // Run comprehensive diagnostics
+      await _runDiagnostics();
+      
+      // Enable emergency mode with TTS-only functionality
+      _speechEnabled = false; // No speech recognition
+      _selectedLocale = 'ar-SA';
+      await _configureTTS();
+      _isInitialized = true;
+      
+      _updateStatus('وضع الطوارئ نشط - النطق متاح، الاستماع معطل');
+      return true;
+      
+    } catch (e) {
+      _updateError('فشل وضع الطوارئ: $e');
+    }
+    return false;
+  }
+
+  /// Run comprehensive diagnostics to identify the issue
+  Future<void> _runDiagnostics() async {
+    final diagnostics = <String>[];
+    
+    try {
+      // Check platform
+      diagnostics.add('Platform: ${Platform.operatingSystem}');
+      
+      // Check permissions
+      try {
+        const platform = MethodChannel('microphone_permissions');
+        final hasPermission = await platform.invokeMethod('checkPermissions');
+        diagnostics.add('Microphone Permission: ${hasPermission ? "Granted" : "Denied"}');
+      } catch (e) {
+        diagnostics.add('Permission Check Failed: $e');
+      }
+      
+      // Check audio focus
+      try {
+        const platform = MethodChannel('audio_focus');
+        final audioFocus = await platform.invokeMethod('requestAudioFocus');
+        diagnostics.add('Audio Focus: ${audioFocus ? "Granted" : "Denied"}');
+      } catch (e) {
+        diagnostics.add('Audio Focus Failed: $e');
+      }
+      
+      // Check speech recognition availability
+      try {
+        final available = await _speechToText.initialize();
+        diagnostics.add('Speech Recognition: ${available ? "Available" : "Not Available"}');
+        if (available) {
+          final locales = await _speechToText.locales();
+          diagnostics.add('Available Locales: ${locales.length}');
+          final arabicLocales = locales.where((l) => l.localeId.startsWith('ar')).toList();
+          diagnostics.add('Arabic Locales: ${arabicLocales.length}');
+        }
+      } catch (e) {
+        diagnostics.add('Speech Recognition Check Failed: $e');
+      }
+      
+      // Log all diagnostics
+      print('=== VOICE SERVICE DIAGNOSTICS ===');
+      for (final diagnostic in diagnostics) {
+        print(diagnostic);
+      }
+      print('=== END DIAGNOSTICS ===');
+      
+    } catch (e) {
+      print('Diagnostics failed: $e');
+    }
+  }
+
   /// Configure the best available Arabic locale
   Future<void> _configureBestLocale() async {
     try {
@@ -288,42 +428,44 @@ class AdvancedVoiceService {
     }
   }
 
-  /// Start listening with enhanced error handling
-  Future<bool> startListening() async {
-    if (!_isInitialized || !_speechEnabled) {
+  /// Start listening for voice input
+  Future<void> startListening() async {
+    if (!_isInitialized) {
       _updateError('الخدمة الصوتية غير مهيأة');
-      return false;
+      return;
     }
 
-    if (_isListening) {
-      await stopListening();
-      await Future.delayed(const Duration(milliseconds: 500));
+    // Handle emergency mode
+    if (!_speechEnabled) {
+      _updateStatus('وضع الطوارئ: الاستماع غير متاح');
+      await speak('عذرا، الميكروفون غير متاح. يمكنني التحدث فقط.');
+      return;
+    }
+
+    if (_speechToText.isListening) {
+      _updateStatus('يتم الاستماع بالفعل...');
+      return;
     }
 
     try {
-      _updateStatus('بدء الاستماع...');
+      await _requestAudioFocus();
       
-      final success = await _speechToText.listen(
-        onResult: _handleSpeechResult,
+      await _speechToText.listen(
+        onResult: (result) {
+          if (result.finalResult && result.recognizedWords.isNotEmpty) {
+            _onSpeechResult?.call(result.recognizedWords);
+          }
+        },
         localeId: _selectedLocale,
         listenFor: const Duration(seconds: 30),
         pauseFor: const Duration(seconds: 3),
         partialResults: true,
         cancelOnError: false,
-        listenMode: ListenMode.confirmation,
       );
-
-      if (success) {
-        _isListening = true;
-        _updateStatus('جاري الاستماع... تحدث الآن');
-        return true;
-      } else {
-        _updateError('فشل في بدء الاستماع');
-        return false;
-      }
+      
+      _updateStatus('يتم الاستماع... تحدث الآن');
     } catch (e) {
-      _updateError('خطأ في بدء الاستماع: $e');
-      return false;
+      _updateError('فشل في بدء الاستماع: $e');
     }
   }
 
