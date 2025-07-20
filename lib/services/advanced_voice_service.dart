@@ -128,8 +128,8 @@ class AdvancedVoiceService {
       // Wait for system to be fully ready
       await Future.delayed(const Duration(seconds: 2));
       
-      // Force garbage collection
-      System.gc();
+      // Wait for system to be fully ready
+      await Future.delayed(const Duration(milliseconds: 500));
       
       _speechEnabled = await _speechToText.initialize(
         onError: _handleSpeechError,

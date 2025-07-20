@@ -121,41 +121,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// This has to happen only once per app
-  void _initSpeech() async {
-    try {
-      _speechEnabled = await _speechToText.initialize(
-        onError: (error) => setState(() {
-          _statusText = 'خطأ في الميكروفون: ${error.errorMsg}';
-          print('Speech Error: ${error.errorMsg}');
-        }),
-        onStatus: (status) => setState(() {
-          _statusText = 'حالة الميكروفون: $status';
-          print('Speech Status: $status');
-        }),
-      );
-      
-      if (_speechEnabled) {
-        // Check available locales
-        var locales = await _speechToText.locales();
-        print('Available locales: ${locales.map((l) => l.localeId).toList()}');
-        
-        setState(() {
-          _statusText = 'الميكروفون جاهز - اضغط للبدء';
-        });
-      } else {
-        setState(() {
-          _statusText = 'فشل في تهيئة الميكروفون';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _statusText = 'خطأ في تهيئة الميكروفون: $e';
-      });
-      print('Speech initialization error: $e');
-    }
-  }
-
   /// Start advanced listening with multiple initialization strategies
   void _startAdvancedListening() async {
     if (!_speechEnabled) {
@@ -263,7 +228,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _speechToText.isListening
+                    _voiceService.isListening
                         ? (_lastWords.isEmpty ? 'استمع...' : _lastWords)
                         : _speechEnabled
                             ? (_lastWords.isEmpty ? 'اضغط على الميكروفون للبدء' : _lastWords)
