@@ -130,12 +130,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final success = await _voiceService.startListening();
-    if (!success) {
-      setState(() {
-        _statusText = 'فشل في بدء الاستماع';
-      });
-    }
+    await _voiceService.startListening();
   }
 
   /// Stop advanced listening

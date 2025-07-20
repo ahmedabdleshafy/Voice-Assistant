@@ -453,7 +453,7 @@ class AdvancedVoiceService {
       await _speechToText.listen(
         onResult: (result) {
           if (result.finalResult && result.recognizedWords.isNotEmpty) {
-            _onSpeechResult?.call(result.recognizedWords);
+            _onResult?.call(result.recognizedWords);
           }
         },
         localeId: _selectedLocale,
