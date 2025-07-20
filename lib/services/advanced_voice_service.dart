@@ -14,7 +14,7 @@ class AdvancedVoiceService {
   AdvancedVoiceService._internal();
 
   // Core services
-  final SpeechToText _speechToText = SpeechToText();
+  SpeechToText _speechToText = SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
   
   // State management
