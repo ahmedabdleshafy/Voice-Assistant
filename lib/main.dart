@@ -4,6 +4,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'services/ai_service.dart';
 import 'services/command_processor.dart';
+import 'services/advanced_voice_service.dart';
 
 void main() {
   runApp(const RafiqApp());
@@ -53,8 +54,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final SpeechToText _speechToText = SpeechToText();
-  final FlutterTts _flutterTts = FlutterTts();
+  final AdvancedVoiceService _voiceService = AdvancedVoiceService();
   final AIService _aiService = AIService();
   final CommandProcessor _commandProcessor = CommandProcessor();
   
@@ -63,51 +63,119 @@ class _HomePageState extends State<HomePage> {
   String _statusText = ''; // To display status and error messages
   String _responseText = ''; // AI response text
   bool _isProcessing = false; // Show processing indicator
+  bool _isInitializing = true; // Show initialization status
 
   @override
   void initState() {
     super.initState();
-    _initSpeech();
-    _initAIService();
+    _initServices();
   }
 
-  /// Initialize AI service
-  void _initAIService() async {
+  /// Initialize all services with advanced voice recognition
+  void _initServices() async {
+    setState(() {
+      _isInitializing = true;
+      _statusText = 'تهيئة الخدمات...';
+    });
+
     try {
+      // Initialize AI service
       await _aiService.initialize();
+      
+      // Initialize advanced voice service with callbacks
+      _speechEnabled = await _voiceService.initialize(
+        onResult: (result) {
+          setState(() {
+            _lastWords = result;
+          });
+          if (result.isNotEmpty) {
+            _processVoiceCommand(result);
+          }
+        },
+        onError: (error) {
+          setState(() {
+            _statusText = error;
+          });
+        },
+        onStatus: (status) {
+          setState(() {
+            _statusText = status;
+          });
+        },
+      );
+      
       setState(() {
-        _statusText = 'AI service initialized';
+        _isInitializing = false;
+        if (_speechEnabled) {
+          _statusText = 'جاهز للاستخدام - اضغط على الميكروفون';
+        } else {
+          _statusText = 'فشل في تهيئة الميكروفون';
+        }
       });
+      
     } catch (e) {
       setState(() {
-        _statusText = 'AI service failed to initialize: $e';
+        _isInitializing = false;
+        _statusText = 'خطأ في التهيئة: $e';
       });
     }
   }
 
   /// This has to happen only once per app
   void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize(
-      onError: (error) => setState(() {
-        _statusText = 'Error: ${error.errorMsg}';
-      }),
-      onStatus: (status) => setState(() {
-        _statusText = 'Status: $status';
-      }),
-    );
-    setState(() {});
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onError: (error) => setState(() {
+          _statusText = 'خطأ في الميكروفون: ${error.errorMsg}';
+          print('Speech Error: ${error.errorMsg}');
+        }),
+        onStatus: (status) => setState(() {
+          _statusText = 'حالة الميكروفون: $status';
+          print('Speech Status: $status');
+        }),
+      );
+      
+      if (_speechEnabled) {
+        // Check available locales
+        var locales = await _speechToText.locales();
+        print('Available locales: ${locales.map((l) => l.localeId).toList()}');
+        
+        setState(() {
+          _statusText = 'الميكروفون جاهز - اضغط للبدء';
+        });
+      } else {
+        setState(() {
+          _statusText = 'فشل في تهيئة الميكروفون';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _statusText = 'خطأ في تهيئة الميكروفون: $e';
+      });
+      print('Speech initialization error: $e');
+    }
   }
 
-  /// Each time to start a speech recognition session
-  void _startListening() async {
-    await _speechToText.listen(onResult: _onSpeechResult, localeId: 'ar_SA');
-    setState(() {});
+  /// Start advanced listening with multiple initialization strategies
+  void _startAdvancedListening() async {
+    if (!_speechEnabled) {
+      setState(() {
+        _statusText = 'الميكروفون غير متاح';
+      });
+      return;
+    }
+
+    final success = await _voiceService.startListening();
+    if (!success) {
+      setState(() {
+        _statusText = 'فشل في بدء الاستماع';
+      });
+    }
   }
 
-  /// Manually stop the active speech recognition session
-  void _stopListening() async {
-    await _speechToText.stop();
-    setState(() {});
+  /// Stop advanced listening
+  void _stopAdvancedListening() async {
+    await _voiceService.stopListening();
   }
 
   /// This is the callback that the SpeechToText plugin calls when
@@ -156,8 +224,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _speak(String text) async {
-    await _flutterTts.setLanguage("ar-SA");
-    await _flutterTts.speak(text);
+    await _voiceService.speak(text);
   }
 
   @override
@@ -280,13 +347,13 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 // Change color when listening
-                color: _speechToText.isNotListening
-                    ? Theme.of(context).colorScheme.primary
+                color: !_voiceService.isListening
+                    ? (_isInitializing ? Colors.grey : Theme.of(context).colorScheme.primary)
                     : Colors.red,
                 boxShadow: [
                   BoxShadow(
-                    color: (_speechToText.isNotListening
-                            ? Theme.of(context).colorScheme.primary
+                    color: (!_voiceService.isListening
+                            ? (_isInitializing ? Colors.grey : Theme.of(context).colorScheme.primary)
                             : Colors.red)
                         .withOpacity(0.4),
                     blurRadius: 20,
@@ -296,7 +363,7 @@ class _HomePageState extends State<HomePage> {
               ),
               child: IconButton(
                 // Start or stop listening when the button is pressed
-                onPressed: _speechToText.isNotListening ? _startListening : _stopListening,
+                onPressed: _isInitializing ? null : (!_voiceService.isListening ? _startAdvancedListening : _stopAdvancedListening),
                 icon: const Icon(Icons.mic, color: Colors.white, size: 48),
                 iconSize: 72,
                 padding: const EdgeInsets.all(24),
