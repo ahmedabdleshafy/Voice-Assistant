@@ -307,16 +307,22 @@ class AdvancedVoiceService {
     try {
       _updateStatus('المحاولة الأخيرة: وضع الطوارئ...');
       
-      // Run comprehensive diagnostics
-      await _runDiagnostics();
+      // Run ULTIMATE diagnostics to identify the exact issue
+      final diagnosticResult = await _runUltimateDiagnostics();
       
-      // Enable emergency mode with TTS-only functionality
+      // Try device-specific fixes based on diagnostics
+      if (await _tryDeviceSpecificFixes(diagnosticResult)) {
+        return true;
+      }
+      
+      // If all else fails, enable emergency mode with TTS-only functionality
       _speechEnabled = false; // No speech recognition
       _selectedLocale = 'ar-SA';
       await _configureTTS();
       _isInitialized = true;
       
       _updateStatus('وضع الطوارئ نشط - النطق متاح، الاستماع معطل');
+      await speak('تم تفعيل وضع الطوارئ. يمكنني التحدث ولكن لا يمكنني الاستماع.');
       return true;
       
     } catch (e) {
@@ -325,7 +331,79 @@ class AdvancedVoiceService {
     return false;
   }
 
-  /// Run comprehensive diagnostics to identify the issue
+  /// Run ULTIMATE diagnostics to identify the exact issue
+  Future<Map<String, dynamic>> _runUltimateDiagnostics() async {
+    final diagnostics = <String, dynamic>{};
+    
+    try {
+      _updateStatus('تشغيل نظام التشخيص المتقدم...');
+      
+      // 1. Platform and Device Information
+      diagnostics['platform'] = Platform.operatingSystem;
+      diagnostics['platform_version'] = Platform.operatingSystemVersion;
+      
+      // 2. Microphone Permission Status
+      try {
+        const platform = MethodChannel('microphone_permissions');
+        final hasPermission = await platform.invokeMethod('checkPermissions');
+        diagnostics['microphone_permission'] = hasPermission;
+        print('✅ Microphone Permission: ${hasPermission ? "GRANTED" : "DENIED"}');
+      } catch (e) {
+        diagnostics['microphone_permission'] = 'ERROR: $e';
+        print('❌ Permission Check Failed: $e');
+      }
+      
+      // 3. Audio Focus Status
+      try {
+        const platform = MethodChannel('audio_focus');
+        final audioFocus = await platform.invokeMethod('requestAudioFocus');
+        diagnostics['audio_focus'] = audioFocus;
+        print('✅ Audio Focus: ${audioFocus ? "GRANTED" : "DENIED"}');
+      } catch (e) {
+        diagnostics['audio_focus'] = 'ERROR: $e';
+        print('❌ Audio Focus Failed: $e');
+      }
+      
+      // 4. Speech Recognition Engine Status
+      try {
+        final speechToText = SpeechToText();
+        final available = await speechToText.initialize(
+          debugLogging: true,
+          onError: (error) => print('❌ Speech Engine Error: ${error.errorMsg}'),
+          onStatus: (status) => print('ℹ️ Speech Engine Status: $status'),
+        );
+        diagnostics['speech_engine_available'] = available;
+        print('✅ Speech Engine: ${available ? "AVAILABLE" : "NOT AVAILABLE"}');
+        
+        if (available) {
+          final locales = await speechToText.locales();
+          diagnostics['total_locales'] = locales.length;
+          final arabicLocales = locales.where((l) => l.localeId.startsWith('ar')).toList();
+          diagnostics['arabic_locales'] = arabicLocales.map((l) => l.localeId).toList();
+          print('✅ Total Locales: ${locales.length}');
+          print('✅ Arabic Locales: ${arabicLocales.map((l) => l.localeId).join(", ")}');
+        }
+      } catch (e) {
+        diagnostics['speech_engine_available'] = 'ERROR: $e';
+        print('❌ Speech Engine Check Failed: $e');
+      }
+      
+      // Log comprehensive diagnostics
+      print('\n=== ULTIMATE VOICE DIAGNOSTICS ===');
+      diagnostics.forEach((key, value) {
+        print('$key: $value');
+      });
+      print('=== END ULTIMATE DIAGNOSTICS ===\n');
+      
+      return diagnostics;
+      
+    } catch (e) {
+      print('❌ Ultimate diagnostics failed: $e');
+      return {'error': e.toString()};
+    }
+  }
+  
+  /// Run comprehensive diagnostics to identify the issue (legacy method)
   Future<void> _runDiagnostics() async {
     final diagnostics = <String>[];
     
@@ -374,6 +452,133 @@ class AdvancedVoiceService {
       
     } catch (e) {
       print('Diagnostics failed: $e');
+    }
+  }
+
+  /// Try device-specific fixes based on diagnostic results
+  Future<bool> _tryDeviceSpecificFixes(Map<String, dynamic> diagnostics) async {
+    try {
+      _updateStatus('تجربة إصلاحات خاصة بالجهاز...');
+      
+      // Fix 1: Permission Issue
+      if (diagnostics['microphone_permission'] == false) {
+        print('ℹ️ Attempting to fix permission issue...');
+        try {
+          const platform = MethodChannel('microphone_permissions');
+          await platform.invokeMethod('requestPermissions');
+          await Future.delayed(const Duration(seconds: 2));
+          
+          // Retry initialization after permission fix
+          final success = await _tryStandardInit();
+          if (success) {
+            _updateStatus('تم إصلاح مشكلة الأذونات');
+            return true;
+          }
+        } catch (e) {
+          print('❌ Permission fix failed: $e');
+        }
+      }
+      
+      // Fix 2: Audio Focus Issue
+      if (diagnostics['audio_focus'] == false) {
+        print('ℹ️ Attempting to fix audio focus issue...');
+        try {
+          // Force release and re-request audio focus
+          const platform = MethodChannel('audio_focus');
+          await platform.invokeMethod('releaseAudioFocus');
+          await Future.delayed(const Duration(milliseconds: 500));
+          await platform.invokeMethod('requestAudioFocus');
+          
+          // Retry initialization after audio focus fix
+          final success = await _tryStandardInit();
+          if (success) {
+            _updateStatus('تم إصلاح مشكلة التركيز الصوتي');
+            return true;
+          }
+        } catch (e) {
+          print('❌ Audio focus fix failed: $e');
+        }
+      }
+      
+      // Fix 3: Speech Engine Issue
+      if (diagnostics['speech_engine_available'] == false || 
+          diagnostics['speech_engine_available'].toString().contains('ERROR')) {
+        print('ℹ️ Attempting to fix speech engine issue...');
+        try {
+          // Try with a completely fresh SpeechToText instance
+          final freshSpeechToText = SpeechToText();
+          await Future.delayed(const Duration(seconds: 3));
+          
+          final available = await freshSpeechToText.initialize(
+            debugLogging: false,
+            onError: (error) => print('Fresh engine error: ${error.errorMsg}'),
+            onStatus: (status) => print('Fresh engine status: $status'),
+          );
+          
+          if (available) {
+            _speechToText = freshSpeechToText;
+            _speechEnabled = true;
+            await _configureBestLocale();
+            await _configureTTS();
+            _isInitialized = true;
+            _updateStatus('تم إصلاح محرك التعرف على الصوت');
+            return true;
+          }
+        } catch (e) {
+          print('❌ Speech engine fix failed: $e');
+        }
+      }
+      
+      // Fix 4: Locale Issue
+      if (diagnostics['arabic_locales'] != null && 
+          (diagnostics['arabic_locales'] as List).isEmpty) {
+        print('ℹ️ Attempting to fix Arabic locale issue...');
+        try {
+          // Try with generic locale
+          _selectedLocale = 'ar';
+          final success = await _tryStandardInit();
+          if (success) {
+            _updateStatus('تم إصلاح مشكلة اللغة العربية');
+            return true;
+          }
+        } catch (e) {
+          print('❌ Locale fix failed: $e');
+        }
+      }
+      
+      // Fix 5: Nuclear Option - Complete System Reset
+      print('ℹ️ Attempting nuclear option - complete system reset...');
+      try {
+        // Reset everything
+        _isInitialized = false;
+        _speechEnabled = false;
+        _isListening = false;
+        _lastError = '';
+        
+        // Wait for system to settle
+        await Future.delayed(const Duration(seconds: 5));
+        
+        // Try one more time with minimal configuration
+        _speechEnabled = await _speechToText.initialize(
+          debugLogging: false,
+        );
+        
+        if (_speechEnabled) {
+          _selectedLocale = 'ar-SA';
+          await _configureTTS();
+          _isInitialized = true;
+          _updateStatus('تم إصلاح النظام بالكامل');
+          return true;
+        }
+      } catch (e) {
+        print('❌ Nuclear option failed: $e');
+      }
+      
+      return false;
+      
+    } catch (e) {
+      print('❌ Device-specific fixes failed: $e');
+      return false;
     }
   }
 
