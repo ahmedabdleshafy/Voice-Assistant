@@ -155,7 +155,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _speak(String text) async {
+  Future<void> _speak(String text) async {
     await _flutterTts.setLanguage("ar-SA");
     await _flutterTts.speak(text);
   }
