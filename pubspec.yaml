@@ -19,7 +19,13 @@ dependencies:
   speech_to_text: ^7.1.0 # Voice recognition
   flutter_tts: ^3.8.3 # Text to speech
   flutter_local_notifications: ^17.1.2 # For reminders
-  http: ^1.1.0 # For API calls to Dialogflow
+  http: ^1.1.0 # For API calls
+  
+  # AI/NLP Integration
+  dio: ^5.4.0 # Enhanced HTTP client for API calls
+  shared_preferences: ^2.2.2 # Store user preferences and context
+  intl: ^0.19.0 # Date/time parsing and formatting
+  uuid: ^4.2.1 # Generate unique IDs for conversations
 
   # UI/UX Packages
   cupertino_icons: ^1.0.2

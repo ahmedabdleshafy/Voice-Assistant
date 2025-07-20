@@ -1,0 +1,78 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+        
+    - name: Get dependencies
+      run: flutter pub get
+      
+    - name: Analyze code
+      run: flutter analyze
+      
+    - name: Run tests
+      run: flutter test
+      
+    - name: Build APK
+      run: flutter build apk --release
+      
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rafiq-app-${{ github.sha }}
+        path: build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 30
+        
+    - name: Create Release (on main branch)
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        body: |
+          🚀 **Rafiq Voice Assistant - Release v${{ github.run_number }}**
+          
+          ## What's New
+          - AI-powered voice command processing
+          - Arabic language support
+          - Smart appointment, reminder, and expense management
+          - Enhanced UI with conversation display
+          
+          ## Download
+          Download the APK file below to install on your Android device.
+          
+          ## Installation
+          1. Download the APK file
+          2. Enable "Install from unknown sources" in your Android settings
+          3. Install the APK
+          4. Grant microphone permissions when prompted
+          
+          Built from commit: ${{ github.sha }}
+        files: build/app/outputs/flutter-apk/app-release.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
